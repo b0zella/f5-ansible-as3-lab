@@ -1,0 +1,31 @@
+---
+- name: Validate app input data before rendering
+  ansible.builtin.include_tasks: validate_input.yml
+
+- name: Render AS3 declaration from vars
+  ansible.builtin.set_fact:
+    as3_declaration: "{{ lookup('ansible.builtin.template', 'as3.yml.j2') | from_yaml }}"
+
+- name: Ensure build directory exists
+  ansible.builtin.file:
+    path: "{{ as3_build_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Write declaration to build/ (pipeline artifact)
+  ansible.builtin.copy:
+    content: "{{ as3_declaration | to_nice_json(indent=2) }}\n"
+    dest: "{{ as3_build_dir }}/as3_{{ inventory_hostname }}.json"
+    mode: "0644"
+
+- name: Validate rendered declaration with Python checker
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "{{ playbook_dir }}/../scripts/validate_as3.py"
+      - "{{ as3_build_dir }}/as3_{{ inventory_hostname }}.json"
+  changed_when: false
+
+- name: Deploy to BIG-IP
+  ansible.builtin.include_tasks: deploy.yml
+  when: as3_deploy | bool

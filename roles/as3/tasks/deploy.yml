@@ -1,0 +1,68 @@
+---
+# Push the declaration to BIG-IP with automatic rollback on failure.
+- name: Deploy AS3 declaration with backup and rollback
+  block:
+    - name: Back up the declaration currently on the BIG-IP
+      ansible.builtin.uri:
+        url: "https://{{ bigip_host }}:{{ bigip_port }}/mgmt/shared/appsvcs/declare"
+        method: GET
+        user: "{{ bigip_user }}"
+        password: "{{ bigip_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ bigip_validate_certs }}"
+        status_code: [200, 204]   # 204 = nothing deployed yet
+      register: as3_current
+
+    - name: Save backup to build/
+      ansible.builtin.copy:
+        content: "{{ as3_current.json | default({}) | to_nice_json(indent=2) }}\n"
+        dest: "{{ as3_build_dir }}/backup_{{ inventory_hostname }}.json"
+        mode: "0600"
+      when: as3_current.status == 200
+
+    - name: POST declaration to AS3
+      ansible.builtin.uri:
+        url: "https://{{ bigip_host }}:{{ bigip_port }}/mgmt/shared/appsvcs/declare"
+        method: POST
+        user: "{{ bigip_user }}"
+        password: "{{ bigip_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ bigip_validate_certs }}"
+        body_format: json
+        body: "{{ as3_declaration }}"
+        status_code: [200]
+        timeout: 120
+      register: as3_result
+      # AS3 reports "no change" when the BIG-IP already matches -> idempotent
+      changed_when: >-
+        as3_result.json.results | default([])
+        | selectattr('message', 'equalto', 'success') | list | length > 0
+
+    - name: Show AS3 results per tenant
+      ansible.builtin.debug:
+        msg: "{{ as3_result.json.results | map(attribute='tenant') | zip(as3_result.json.results | map(attribute='message')) | list }}"
+
+  rescue:
+    - name: Report failure
+      ansible.builtin.debug:
+        msg: "AS3 deploy failed: {{ ansible_failed_result.json.results | default(ansible_failed_result.msg) }}"
+
+    - name: Roll back to the previous declaration
+      ansible.builtin.uri:
+        url: "https://{{ bigip_host }}:{{ bigip_port }}/mgmt/shared/appsvcs/declare"
+        method: POST
+        user: "{{ bigip_user }}"
+        password: "{{ bigip_password }}"
+        force_basic_auth: true
+        validate_certs: "{{ bigip_validate_certs }}"
+        body_format: json
+        body: "{{ as3_current.json }}"
+        status_code: [200]
+        timeout: 120
+      when:
+        - as3_current is defined
+        - as3_current.status | default(0) == 200
+
+    - name: Fail the run so the pipeline goes red
+      ansible.builtin.fail:
+        msg: "Deploy failed; rollback attempted. Check output above."

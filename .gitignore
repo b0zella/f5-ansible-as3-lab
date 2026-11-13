@@ -1,0 +1,8 @@
+build/
+.venv/
+__pycache__/
+*.retry
+# Plain-text vault files must never be committed. Encrypt first, then
+# remove this line (or `git add -f`) to commit the encrypted vault.yml.
+inventory/group_vars/bigip/vault.yml
+.vault_pass*

@@ -1,0 +1,39 @@
+---
+# Source of truth: every app the BIG-IP should serve.
+# Add an app here -> pipeline renders a new AS3 declaration -> deploy.
+# Remove an app here -> AS3 removes it from the BIG-IP (declarative).
+as3_tenants:
+  - name: Lab_Tenant
+    apps:
+      - name: web_app
+        vip: 10.1.10.100
+        port: 443
+        protocol: https          # https = SSL offload + auto port-80 redirect
+        lb_method: round-robin
+        member_port: 80
+        members:
+          - 10.1.20.11
+          - 10.1.20.12
+        monitor:
+          type: http
+          send: "GET /health HTTP/1.1\r\nHost: web.lab.local\r\nConnection: close\r\n\r\n"
+          receive: "200 OK"
+          interval: 5
+          timeout: 16
+
+      - name: api_app
+        vip: 10.1.10.101
+        port: 80
+        protocol: http
+        lb_method: least-connections-member
+        member_port: 8080
+        members:
+          - 10.1.20.21
+          - 10.1.20.22
+          - 10.1.20.23
+        monitor:
+          type: http
+          send: "GET /api/ping HTTP/1.1\r\nHost: api.lab.local\r\nConnection: close\r\n\r\n"
+          receive: "pong"
+          interval: 10
+          timeout: 31

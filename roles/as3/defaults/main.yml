@@ -1,0 +1,23 @@
+---
+# Pin the AS3 schema version to what's installed on your BIG-IP
+# (GET /mgmt/shared/appsvcs/info shows it).
+as3_schema_version: "3.50.0"
+as3_declaration_id: "ansible-lab"
+as3_build_dir: "{{ playbook_dir }}/../build"
+
+# Safety switch: rendering/validation always runs, pushing to BIG-IP only
+# happens when you pass -e as3_deploy=true
+as3_deploy: false
+
+as3_allowed_lb_methods:
+  - round-robin
+  - least-connections-member
+  - ratio-member
+  - fastest-app-response
+as3_allowed_protocols:
+  - http
+  - https
+
+# Lab cert/key that ship on every BIG-IP. Swap for real ones later.
+as3_default_cert: /Common/default.crt
+as3_default_key: /Common/default.key

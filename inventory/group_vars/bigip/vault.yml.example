@@ -1,0 +1,6 @@
+---
+# Copy to vault.yml, set the real password, then encrypt it:
+#   cp vault.yml.example vault.yml
+#   ansible-vault encrypt inventory/group_vars/bigip/vault.yml
+# Commit only the ENCRYPTED file. Never commit the plain-text version.
+vault_bigip_password: "change-me"

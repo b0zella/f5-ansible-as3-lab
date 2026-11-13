@@ -1,0 +1,54 @@
+{# Rendered as YAML, then converted to JSON by the role.
+   Templating YAML (not raw JSON) avoids trailing-comma bugs. #}
+class: AS3
+action: deploy
+persist: true
+declaration:
+  class: ADC
+  schemaVersion: "{{ as3_schema_version }}"
+  id: "{{ as3_declaration_id }}"
+  label: "Managed by Ansible - do not edit in the GUI"
+{% for tenant in as3_tenants %}
+  {{ tenant.name }}:
+    class: Tenant
+{% for app in tenant.apps %}
+    {{ app.name }}:
+      class: Application
+      {{ app.name }}_vs:
+        class: {{ 'Service_HTTPS' if app.protocol == 'https' else 'Service_HTTP' }}
+        virtualAddresses:
+          - "{{ app.vip }}"
+        virtualPort: {{ app.port }}
+        pool: {{ app.name }}_pool
+{% if app.protocol == 'https' %}
+        serverTLS: {{ app.name }}_tls
+{% endif %}
+      {{ app.name }}_pool:
+        class: Pool
+        loadBalancingMode: {{ app.lb_method }}
+        monitors:
+          - use: {{ app.name }}_mon
+        members:
+          - servicePort: {{ app.member_port }}
+            serverAddresses: {{ app.members | to_json }}
+      {{ app.name }}_mon:
+        class: Monitor
+        monitorType: {{ app.monitor.type }}
+        send: {{ app.monitor.send | to_json }}
+        receive: {{ app.monitor.receive | to_json }}
+        interval: {{ app.monitor.interval }}
+        timeout: {{ app.monitor.timeout }}
+{% if app.protocol == 'https' %}
+      {{ app.name }}_tls:
+        class: TLS_Server
+        certificates:
+          - certificate: {{ app.name }}_cert
+      {{ app.name }}_cert:
+        class: Certificate
+        certificate:
+          bigip: {{ app.cert | default(as3_default_cert) }}
+        privateKey:
+          bigip: {{ app.key | default(as3_default_key) }}
+{% endif %}
+{% endfor %}
+{% endfor %}

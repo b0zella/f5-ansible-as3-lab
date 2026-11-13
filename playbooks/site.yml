@@ -1,0 +1,9 @@
+---
+# Render + validate (always), deploy (only with -e as3_deploy=true)
+#   ansible-playbook playbooks/site.yml
+#   ansible-playbook playbooks/site.yml -e as3_deploy=true --ask-vault-pass
+- name: Manage F5 BIG-IP apps with AS3
+  hosts: bigip
+  gather_facts: false
+  roles:
+    - as3

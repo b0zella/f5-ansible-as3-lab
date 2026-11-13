@@ -1,0 +1,26 @@
+---
+- name: Check each app has required fields and sane values
+  ansible.builtin.assert:
+    that:
+      - item.1.name is match('^[A-Za-z][A-Za-z0-9_]*$')
+      - item.1.vip is match('^\d{1,3}(\.\d{1,3}){3}$')   # deep IP checks happen in validate_as3.py
+      - item.1.port | int in range(1, 65536)
+      - item.1.member_port | int in range(1, 65536)
+      - item.1.members | length > 0
+      - item.1.protocol in as3_allowed_protocols
+      - item.1.lb_method in as3_allowed_lb_methods
+      - item.1.monitor.timeout | int > item.1.monitor.interval | int
+    fail_msg: "App '{{ item.1.name | default('UNNAMED') }}' in tenant '{{ item.0.name }}' failed input validation"
+    quiet: true
+  loop: "{{ as3_tenants | subelements('apps') }}"
+  loop_control:
+    label: "{{ item.0.name }}/{{ item.1.name | default('?') }}"
+
+- name: Check no two apps share the same VIP:port
+  vars:
+    as3_all_apps: "{{ as3_tenants | map(attribute='apps') | flatten }}"
+    as3_listeners: "{{ as3_all_apps | map(attribute='vip') | zip(as3_all_apps | map(attribute='port')) | map('join', ':') | list }}"
+  ansible.builtin.assert:
+    that: as3_listeners | length == as3_listeners | unique | length
+    fail_msg: "Duplicate VIP:port found: {{ as3_listeners }}"
+    quiet: true

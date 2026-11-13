@@ -1,0 +1,8 @@
+---
+# Connection settings for the BIG-IP REST API.
+# The password lives in vault.yml (encrypted with ansible-vault) and is only
+# needed when you actually deploy (Phase 2).
+bigip_port: 443
+bigip_user: admin
+bigip_password: "{{ vault_bigip_password }}"
+bigip_validate_certs: false   # lab only - BIG-IP ships with a self-signed cert
